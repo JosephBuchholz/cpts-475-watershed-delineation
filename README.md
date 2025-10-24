@@ -15,3 +15,7 @@ After setup just run the virtual environment (step 2) and start jupyter notebook
 
 ## Adding Packages
 Run if you install a new package with `pip`: `pip freeze > packages.txt`
+
+## Contributing
+
+When making changes to a juypter notebook file: before making a commit, clear all the outputs
