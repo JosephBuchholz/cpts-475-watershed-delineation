@@ -8,8 +8,9 @@ A research project aimed at creating a scalable terrain graph representation for
 2. `.\venv\Scripts\Activate.ps1` for Windows PowerShell
     - Windows cmd: `venv/Scripts/activate.bat`
     - Linux or macOS: `soruce venv/bin/activate`
-3. Create a `data` folder and add any nessesary data files (see the Google Drive)
-4. Run `jupyter notebook` or use the VS Code IDE
+3. Run `pip install -r packages.txt` to install the packages
+4. Create a `data` folder and add any nessesary data files (see the Google Drive)
+5. Run `jupyter notebook` or use the VS Code IDE
 
 ## After Setup
 After setup just run the virtual environment (step 2) and start jupyter notebooks
