@@ -1,4 +1,5 @@
 import numpy as np
+import utils
 
 class Vertex:
     def __init__(self, x, y, z, id):
@@ -51,6 +52,38 @@ class Triangle:
             return None
         
         return (shared_vertices[0], shared_vertices[1])
+    
+    def convert_to_array_triangle(self):
+        return np.array([self.v1.coord(), self.v2.coord(), self.v3.coord()])
+    
+    def convert_to_indices(self):
+        return np.array([self.v1.id, self.v2.id, self.v3.id])
+    
+    def get_edges_with_vertex(self, vertex):
+        if vertex not in self.vertices():
+            print("Error: vertex does not exist in this triangle")
+            return (None, None)
+        
+        other = self.vertices()
+        other.remove(vertex)
+        edges = ([vertex, other[0]], [vertex, other[1]])
+        edge_vecs = (np.array([edges[0][1].x - edges[0][0].x, edges[0][1].y - edges[0][0].y]),
+                     np.array([edges[1][1].x - edges[1][0].x, edges[1][1].y - edges[1][0].y]))
+
+        side = utils.cross_2D(edge_vecs[0], edge_vecs[1])
+        if side < 0:
+            # swap, since they are on the wrong side (i.e. the cross product should be positive)
+            edges = (edges[1], edges[0])
+        
+        return edges
+    
+    # This function was generated with AI (Copilot Code Completion)
+    # Returns the centroid of the triangle as a Vertex object
+    def get_centroid(self):
+        x = (self.v1.x + self.v2.x + self.v3.x) / 3.0
+        y = (self.v1.y + self.v2.y + self.v3.y) / 3.0
+        z = (self.v1.z + self.v2.z + self.v3.z) / 3.0
+        return Vertex(x, y, z, -1) # id of -1 since it's not a real vertex
     
     def __str__(self):
         return "Triangle(id: {}, v1: {}, v2: {}, v3: {})".format(self.id, self.v1, self.v2, self.v3)
@@ -223,6 +256,7 @@ def get_point_and_adj_triangle_from_descent(triangle, start, descent, xs, ys, zs
     adj_triangles = get_triangles_with_edge(v1, v2, triangles)
     if len(adj_triangles) != 2:
         print("Error: not enough (or too many) triangles")
+        return (intersection, None, v1, v2)
     
     current_tri = None
     adj_tri = None
@@ -331,14 +365,67 @@ def get_all_triangles_and_edges_at_point(vertex, triangles):
 
     # result should contain triangles and edges in order either clockwise or counterclockwise
     # (should't really matter which direction, except maybe for consistency,
-    # Jones et al. uses counterclockwise)
+    # Jones et al. uses counterclockwise, see p. 1240)
     return result
 
-def test_triangle(point, triangle):
-    return True
+# see p. 1240 of Jones et al.
+def test_triangle(vertex, triangle):
+    descent = calculate_steepest_descent(triangle.convert_to_array_triangle())
 
-def test_edge(point, end_point):
-    return True
+    ij, ik = triangle.get_edges_with_vertex(vertex)
+    ij_vec = np.array([ij[1].x - ij[0].x, ij[1].y - ij[0].y])
+    ik_vec = np.array([ik[1].x - ik[0].x, ik[1].y - ik[0].y])
+
+    direction_ij = utils.cross_2D(np.array(descent), ij_vec)
+    direction_ik = utils.cross_2D(np.array(descent), ik_vec)
+
+    if direction_ij < 0 and direction_ik > 0:
+        # this means that the descent is inbetween these two edges
+
+        # TODO: should probably check that the descent vector actually descends
+        return True
+    
+    return False
+
+def test_edge(vertex, edge, adj_triangle_previous, adj_triangle_next):
+    if adj_triangle_previous is None or adj_triangle_next is None or isinstance(adj_triangle_previous, tuple) or isinstance(adj_triangle_next, tuple):
+        print()("Error: adjacent triangles cannot be None or edges")
+        return False
+    
+    if edge[0] != vertex and edge[1] != vertex:
+        print("Error: vertex must be one of the edge's vertices")
+        return False
+    
+    # make first vertex of edge be the given vertex
+    if edge[0] != vertex:
+        edge = (edge[1], edge[0])
+    
+    descent_prev = calculate_steepest_descent(adj_triangle_previous.convert_to_array_triangle())
+    descent_next = calculate_steepest_descent(adj_triangle_next.convert_to_array_triangle())
+
+    edge_vector = np.array([edge[1].x - edge[0].x, edge[1].y - edge[0].y])
+
+    direction_prev = utils.cross_2D(np.array(descent_prev), edge_vector)
+    direction_next = utils.cross_2D(np.array(descent_next), edge_vector)
+
+    if direction_prev < 0 and direction_next > 0:
+        # this means that the edge lies in a channel formed by the two adjacent triangles
+
+        # TODO: check this first:
+        if edge[0].z >= edge[1].z:
+            # the edge also descends in the correct direction
+            return True
+
+    return False
+
+def get_other_vertex_from_edge(vertex, edge):
+    if edge[0] == vertex:
+        return edge[1]
+    elif edge[1] == vertex:
+        return edge[0]
+    else:
+        print("Error: vertex is not part of the edge")
+        return None
 
 def draw_triangle(ax, triangle, color, xs, ys):
     ax.plot([xs[triangle[0]], xs[triangle[1]]], [ys[triangle[0]], ys[triangle[1]]], "-", color=color, linewidth=1)
@@ -352,12 +439,15 @@ def draw_triangle_object(ax, triangle, color, linewidth=1):
     ax.plot([triangle.v2.x, triangle.v3.x], [triangle.v2.y, triangle.v3.y], "-", color=color, linewidth=linewidth)
     ax.plot([triangle.v3.x, triangle.v1.x], [triangle.v3.y, triangle.v1.y], "-", color=color, linewidth=linewidth)
 
-def draw_vertex(ax, point):
-    ax.plot(point.x, point.y, 'o')
+def draw_vertex(ax, point, markersize=1):
+    ax.plot(point.x, point.y, 'o', markersize=markersize)
 
-def draw_point(ax, point):
-    ax.plot(point[0], point[1], 'o')
+def draw_point(ax, point, markersize=1):
+    ax.plot(point[0], point[1], 'o', markersize=markersize)
 
-# where edge is a tuple of two vertex indices
+# where edge is a tuple of two vertices
 def draw_line(ax, edge, color):
     ax.plot([edge[0].x, edge[1].x], [edge[0].y, edge[1].y], "-", color=color, linewidth=2)
+
+def draw_line_points(ax, p1, p2, color):
+    ax.plot([p1[0], p2[0]], [p1[1], p2[1]], "-", color=color, linewidth=2)
