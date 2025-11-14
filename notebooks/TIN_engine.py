@@ -187,6 +187,9 @@ def get_full_3D_triangle(triangle, xs, ys, zs):
 
 def get_triangle_at(point, triangles, xs, ys, zs):
     for triangle in triangles:
+        if isinstance(triangle, Triangle):
+            triangle = triangle.convert_to_indices()
+
         full = get_full_2D_triangle(triangle, xs, ys, zs)
         if point_in_triangle(point, full):
             return triangle
@@ -427,6 +430,133 @@ def get_other_vertex_from_edge(vertex, edge):
         print("Error: vertex is not part of the edge")
         return None
 
+# ------ Main functions ------
+
+# bounds = (max_x, max_y, min_x, min_y)
+def get_subset_of_triangles_from_bounds(triangles, bounds, xs, ys):
+    mask = (xs < bounds[0]) & (xs > bounds[2]) & (ys < bounds[1]) & (ys > bounds[3])
+
+    verticies_subset = np.where(mask)
+    m = np.isin(triangles, verticies_subset)
+    triangles_subset = triangles[np.all(m, axis=1)]
+
+    return triangles_subset
+
+def calculate_steepest_descent_line(start_point, triangles, triangles_subset, xs, ys, zs, max_steps=1000):
+    result = []
+    result.append(start_point)
+
+    tri = get_triangle_at(start_point, triangles_subset, xs, ys, zs)
+    if tri is False:
+        print("Error: could not find triangle at start point")
+        return result
+
+    s_point = start_point[0:2]
+    previous_z = start_point[2]
+    for i in range(1, max_steps + 1):
+        full_tri = get_full_3D_triangle(tri, xs, ys, zs)
+
+        descent = calculate_steepest_descent(full_tri)
+        descent = descent / np.linalg.norm(descent)
+        descent *= 0.001
+
+        next_point, adj_tri, v1, v2 = get_point_and_adj_triangle_from_descent(tri, s_point, descent, xs, ys, zs, triangles_subset)
+        if next_point is None:
+            print("next_point should not be None, stopping at iteration ", i)
+            break
+
+        result.append([next_point[0], next_point[1], previous_z])
+
+        if adj_tri is None:
+            print("No adjacent triangle found, stopping at iteration ", i)
+            break
+
+        full_adj_tri = get_full_3D_triangle(adj_tri, xs, ys, zs)
+        descent_adj = calculate_steepest_descent(full_adj_tri) # gh from p. 1239, Jones et al.
+
+        full_adj_tri = make_triangle_counterclockwise(full_adj_tri)
+
+        coord1 = get_real_vertex_3D(v1, xs, ys, zs)
+        coord2 = get_real_vertex_3D(v2, xs, ys, zs)
+        v1 = Vertex(coord1[0], coord1[1], coord1[2], v1)
+        v2 = Vertex(coord2[0], coord2[1], coord2[2], v2)
+
+        if (find_row_index(full_adj_tri, v1.coord()) + 1) % 3 == find_row_index(full_adj_tri, v2.coord()): # if v1 comes before v2 
+            ij = v2.coord() - v1.coord()
+        else: # v2 comes before v1
+            # swap
+            temp = v1
+            v1 = v2
+            v2 = temp
+
+            ij = v2.coord() - v1.coord()
+
+        # direction of the adj. triangle: if positive then adj. triangle slopes toward the current edge
+        direction = utils.cross_2D(np.array(descent_adj), ij[0:2])
+        
+        if direction < 0:
+            tri = adj_tri
+            s_point = next_point
+            continue
+        else:
+            lowest = None
+            if v1.z > v2.z:
+                lowest = v2
+            else:
+                lowest = v1
+            
+            result.append(lowest.coord())
+            previous_z = lowest.z
+
+            stop = False
+            while True:
+                # TODO: do not check the triangles/edges that have already been visited
+
+                ordered = get_all_triangles_and_edges_at_point(lowest, triangles)
+                color = (1, 0, 0)
+                previous_item = None
+                next_item = None
+                j = 0
+                next_point = None
+                next_triangle = None
+                for item in ordered:
+                    previous_item = ordered[(j - 1) % len(ordered)]
+                    next_item = ordered[(j + 1) % len(ordered)]
+
+                    if isinstance(item, Triangle):
+                        if test_triangle(lowest, item):
+                            next_triangle = item
+                    else: # must be an edge
+                        # next_item and previous_item should be triangles adjacent to this edge
+                        if test_edge(lowest, item, next_item, previous_item):
+                            next_point = get_other_vertex_from_edge(lowest, item)
+                            result.append(next_point.coord())
+                            previous_z = next_point.z
+                    
+                    color = ((color[0] - (1.0 / 30.0)) % 1.0, color[1], color[2])
+                    j += 1
+                
+                if next_point is not None:
+                    lowest = next_point
+                    continue
+                elif next_triangle is not None:
+                    tri = next_triangle.convert_to_indices()
+                    s_point = lowest.coord()[0:2]
+                    break # and then continue the outer for loop
+                else:
+                    # need to stop here
+                    stop = True
+                    break
+
+            if stop:
+                break
+            else:
+                continue
+    
+    return result
+
+# ------ Drawing functions ------
+
 def draw_triangle(ax, triangle, color, xs, ys):
     ax.plot([xs[triangle[0]], xs[triangle[1]]], [ys[triangle[0]], ys[triangle[1]]], "-", color=color, linewidth=1)
     ax.plot([xs[triangle[1]], xs[triangle[2]]], [ys[triangle[1]], ys[triangle[2]]], "-", color=color, linewidth=1)
@@ -446,8 +576,8 @@ def draw_point(ax, point, markersize=1):
     ax.plot(point[0], point[1], 'o', markersize=markersize)
 
 # where edge is a tuple of two vertices
-def draw_line(ax, edge, color):
-    ax.plot([edge[0].x, edge[1].x], [edge[0].y, edge[1].y], "-", color=color, linewidth=2)
+def draw_line(ax, edge, color, linewidth=2):
+    ax.plot([edge[0].x, edge[1].x], [edge[0].y, edge[1].y], "-", color=color, linewidth=linewidth)
 
-def draw_line_points(ax, p1, p2, color):
-    ax.plot([p1[0], p2[0]], [p1[1], p2[1]], "-", color=color, linewidth=2)
+def draw_line_points(ax, p1, p2, color, linewidth=2):
+    ax.plot([p1[0], p2[0]], [p1[1], p2[1]], "-", color=color, linewidth=linewidth)
