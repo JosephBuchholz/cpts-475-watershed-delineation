@@ -6,3 +6,5 @@ WASHINGTON_LARGE = DATA_DIR / "washington_large.tif"
 WASHINGTON_MEDIUM = DATA_DIR / "washington_medium.tif"
 WASHINGTON_SMALL = DATA_DIR / "washington_small.tif"
 WASHINGTON_TINY = DATA_DIR / "washington_tiny.tif"
+
+DEBUG_TIN = True

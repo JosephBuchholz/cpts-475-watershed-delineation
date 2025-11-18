@@ -1,92 +1,6 @@
 import numpy as np
 import utils
-
-class Vertex:
-    def __init__(self, x, y, z, id):
-        self.x = x
-        self.y = y
-        self.z = z
-        self.id = id
-    
-    def coord(self):
-        return np.array([self.x, self.y, self.z])
-    
-    def __str__(self):
-        return "Vertex(id: {}, x: {}, y: {}, z: {})".format(self.id, self.x, self.y, self.z)
-    
-    def __eq__(self, other):
-        return self.id == other.id
-
-class Triangle:
-    # v1, v2, v3 are vertex indices
-    # a1, a2, a3 are adjacent triangles (Triangle objects)
-    def __init__(self, v1, v2, v3, a1, a2, a3, id):
-        self.v1 = v1
-        self.v2 = v2
-        self.v3 = v3
-        self.a1 = a1
-        self.a2 = a2
-        self.a3 = a3
-        self.id = id
-    
-    def vertices(self):
-        return [self.v1, self.v2, self.v3]
-    
-    def adjacent_triangles(self):
-        return [self.a1, self.a2, self.a3]
-    
-    def triangle_has_vertex(self, vertex):
-        return self.v1.id == vertex.id or self.v3.id == vertex.id or self.v2.id == vertex.id
-    
-    # This function was generated with AI (Copilot Code Completion)
-    # Returns the shared edge (as a tuple of two Vertex objects) between this triangle
-    # and an (hopefully adjacent) triangle
-    def get_shared_edge(self, other_triangle):
-        shared_vertices = []
-        for v in self.vertices():
-            if other_triangle.triangle_has_vertex(v):
-                shared_vertices.append(v)
-        
-        if len(shared_vertices) != 2:
-            print("Error: triangles do not share an edge")
-            return None
-        
-        return (shared_vertices[0], shared_vertices[1])
-    
-    def convert_to_array_triangle(self):
-        return np.array([self.v1.coord(), self.v2.coord(), self.v3.coord()])
-    
-    def convert_to_indices(self):
-        return np.array([self.v1.id, self.v2.id, self.v3.id])
-    
-    def get_edges_with_vertex(self, vertex):
-        if vertex not in self.vertices():
-            print("Error: vertex does not exist in this triangle")
-            return (None, None)
-        
-        other = self.vertices()
-        other.remove(vertex)
-        edges = ([vertex, other[0]], [vertex, other[1]])
-        edge_vecs = (np.array([edges[0][1].x - edges[0][0].x, edges[0][1].y - edges[0][0].y]),
-                     np.array([edges[1][1].x - edges[1][0].x, edges[1][1].y - edges[1][0].y]))
-
-        side = utils.cross_2D(edge_vecs[0], edge_vecs[1])
-        if side < 0:
-            # swap, since they are on the wrong side (i.e. the cross product should be positive)
-            edges = (edges[1], edges[0])
-        
-        return edges
-    
-    # This function was generated with AI (Copilot Code Completion)
-    # Returns the centroid of the triangle as a Vertex object
-    def get_centroid(self):
-        x = (self.v1.x + self.v2.x + self.v3.x) / 3.0
-        y = (self.v1.y + self.v2.y + self.v3.y) / 3.0
-        z = (self.v1.z + self.v2.z + self.v3.z) / 3.0
-        return Vertex(x, y, z, -1) # id of -1 since it's not a real vertex
-    
-    def __str__(self):
-        return "Triangle(id: {}, v1: {}, v2: {}, v3: {})".format(self.id, self.v1, self.v2, self.v3)
+from TIN_types import TIN_log, Vertex, Triangle
 
 def convert_to_triangle_objects(triangles, xs, ys, zs):
     triangle_objects = []
@@ -118,6 +32,80 @@ def convert_to_triangle_objects(triangles, xs, ys, zs):
         t.a3 = adjacents[2] if len(adjacents) > 2 else None
     
     return triangle_objects
+
+# similar to convert_to_triangle_objects, but also returns a list of unique Vertex objects
+# should also be more efficent, about O(n) (while previous was O(n^2))
+# TODO: there seems to be some problems, but works for now
+def convert_to_triangle_and_vertex_objects(triangles, xs, ys, zs):
+    triangle_objects = []
+    vertices = {}
+    for i in range(len(triangles)):
+        t = triangles[i]
+        v1 = Vertex(xs[t[0]], ys[t[0]], zs[t[0]], t[0])
+        if v1.id not in vertices:
+            vertices[v1.id] = v1
+        else:
+            v1 = vertices[v1.id]
+
+        v2 = Vertex(xs[t[1]], ys[t[1]], zs[t[1]], t[1])
+        if v2.id not in vertices:
+            vertices[v2.id] = v2
+        else:
+            v2 = vertices[v2.id]
+
+        v3 = Vertex(xs[t[2]], ys[t[2]], zs[t[2]], t[2])
+        if v3.id not in vertices:
+            vertices[v3.id] = v3
+        else:
+            v3 = vertices[v3.id]
+        
+        if not v1.is_vertex_connected(v2):
+            v1.connected_vertices.append(v2)
+        if not v1.is_vertex_connected(v3):
+            v1.connected_vertices.append(v3)
+
+        if not v2.is_vertex_connected(v1):
+            v2.connected_vertices.append(v1)
+        if not v2.is_vertex_connected(v3):
+            v2.connected_vertices.append(v3)
+        
+        if not v3.is_vertex_connected(v1):
+            v3.connected_vertices.append(v1)
+        if not v3.is_vertex_connected(v2):
+            v3.connected_vertices.append(v2)
+
+        triangle = Triangle(v1, v2, v3, None, None, None, i)
+        v1.connected_triangles.append(triangle)
+        v2.connected_triangles.append(triangle)
+        v3.connected_triangles.append(triangle)
+        triangle_objects.append(triangle)
+
+    for i in range(len(triangle_objects)):
+        current_triangle = triangle_objects[i]
+
+        adjacents = []
+
+        for v in current_triangle.vertices():
+            if current_triangle not in v.connected_triangles:
+                TIN_log("Error: triangle not in vertex's connected triangles")
+            
+            for connected_triangle in v.connected_triangles:
+                if connected_triangle.id == current_triangle.id:
+                    continue
+
+                shared_vertices = set([current_triangle.v1.id, current_triangle.v2.id, current_triangle.v3.id]).intersection(set([connected_triangle.v1.id, connected_triangle.v2.id, connected_triangle.v3.id]))
+                if len(shared_vertices) == 2 and connected_triangle not in adjacents:
+                    adjacents.append(connected_triangle)
+        
+        if len(adjacents) < 1 or len(adjacents) > 3:
+            TIN_log("Warning: Triangle " + str(i) + " has less than 1 adjacent triangles or greater than 3 (has " + str(len(adjacents)) + ")")
+
+        # assign adjacent triangles (or None if not enough)
+        current_triangle.a1 = adjacents[0] if len(adjacents) > 0 else None
+        current_triangle.a2 = adjacents[1] if len(adjacents) > 1 else None
+        current_triangle.a3 = adjacents[2] if len(adjacents) > 2 else None
+
+    return triangle_objects, vertices
 
 # "sign" and "point_in_triangle" see https://stackoverflow.com/questions/2049582/how-to-determine-if-a-point-is-in-a-2d-triangle
 def sign(p1, p2, p3):
@@ -555,29 +543,18 @@ def calculate_steepest_descent_line(start_point, triangles, triangles_subset, xs
     
     return result
 
-# ------ Drawing functions ------
 
-def draw_triangle(ax, triangle, color, xs, ys):
-    ax.plot([xs[triangle[0]], xs[triangle[1]]], [ys[triangle[0]], ys[triangle[1]]], "-", color=color, linewidth=1)
-    ax.plot([xs[triangle[1]], xs[triangle[2]]], [ys[triangle[1]], ys[triangle[2]]], "-", color=color, linewidth=1)
-    ax.plot([xs[triangle[2]], xs[triangle[0]]], [ys[triangle[2]], ys[triangle[0]]], "-", color=color, linewidth=1)
+# ------ Channel network functions ------
 
-# This function was generated with AI (Copilot Code Completion)
-# The function draws a triangle given a Triangle object
-def draw_triangle_object(ax, triangle, color, linewidth=1):
-    ax.plot([triangle.v1.x, triangle.v2.x], [triangle.v1.y, triangle.v2.y], "-", color=color, linewidth=linewidth)
-    ax.plot([triangle.v2.x, triangle.v3.x], [triangle.v2.y, triangle.v3.y], "-", color=color, linewidth=linewidth)
-    ax.plot([triangle.v3.x, triangle.v1.x], [triangle.v3.y, triangle.v1.y], "-", color=color, linewidth=linewidth)
+def get_adjacent_vertices(vertex, triangles):
+    adjacent_vertices = set()
+    for triangle in triangles:
+        if triangle.triangle_has_vertex(vertex):
+            for v in triangle.vertices():
+                if v != vertex:
+                    adjacent_vertices.add(v)
+    
+    return list(adjacent_vertices)
 
-def draw_vertex(ax, point, markersize=1):
-    ax.plot(point.x, point.y, 'o', markersize=markersize)
-
-def draw_point(ax, point, markersize=1):
-    ax.plot(point[0], point[1], 'o', markersize=markersize)
-
-# where edge is a tuple of two vertices
-def draw_line(ax, edge, color, linewidth=2):
-    ax.plot([edge[0].x, edge[1].x], [edge[0].y, edge[1].y], "-", color=color, linewidth=linewidth)
-
-def draw_line_points(ax, p1, p2, color, linewidth=2):
-    ax.plot([p1[0], p2[0]], [p1[1], p2[1]], "-", color=color, linewidth=linewidth)
+def get_vertices_on_area_bounds(vertices):
+    pass
