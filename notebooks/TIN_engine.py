@@ -185,6 +185,21 @@ def get_triangle_at(point, triangles, xs, ys, zs):
     print("Failed to get triangle for point")
     return False
 
+def get_triangles_with_edge_new(v1: Vertex, v2: Vertex):
+    triangles_result = [] # there should only ever be two triangles that share the same edge
+
+    triangles = set(v1.connected_triangles)
+    triangles.update(v2.connected_triangles)
+
+    for triangle in triangles:
+        if v1 in triangle.vertices() and v2 in triangle.vertices():
+            triangles_result.append(triangle)
+
+    if len(triangles_result) > 2:
+        TIN_log("ERROR: too many triangles with the same specified edge: ", v1, ", ", v2)
+    
+    return triangles_result
+
 def get_triangles_with_edge(p1, p2, triangles):
     triangle_list = [] # there should only ever be two triangles that share the same edge
 
@@ -378,6 +393,25 @@ def test_triangle(vertex, triangle):
     
     return False
 
+def edge_lies_in_channel(v1, v2, adj_triangle_previous, adj_triangle_next, ascend=False):
+    descent_prev = calculate_steepest_descent(adj_triangle_previous.convert_to_array_triangle())
+    descent_next = calculate_steepest_descent(adj_triangle_next.convert_to_array_triangle())
+
+    edge_vector = np.array([v2.x - v1.x, v2.y - v1.y])
+
+    direction_prev = utils.cross_2D(np.array(descent_prev), edge_vector)
+    direction_next = utils.cross_2D(np.array(descent_next), edge_vector)
+
+    if ascend and direction_prev > 0 and direction_next < 0: # TODO: check if this is correct
+        # this means that the edge lies in a channel formed by the two adjacent triangles
+        return True
+    elif not ascend and direction_prev < 0 and direction_next > 0:
+        # this means that the edge lies in a channel formed by the two adjacent triangles
+        return True
+
+    return False
+
+
 def test_edge(vertex, edge, adj_triangle_previous, adj_triangle_next):
     if adj_triangle_previous is None or adj_triangle_next is None or isinstance(adj_triangle_previous, tuple) or isinstance(adj_triangle_next, tuple):
         print()("Error: adjacent triangles cannot be None or edges")
@@ -391,20 +425,10 @@ def test_edge(vertex, edge, adj_triangle_previous, adj_triangle_next):
     if edge[0] != vertex:
         edge = (edge[1], edge[0])
     
-    descent_prev = calculate_steepest_descent(adj_triangle_previous.convert_to_array_triangle())
-    descent_next = calculate_steepest_descent(adj_triangle_next.convert_to_array_triangle())
-
-    edge_vector = np.array([edge[1].x - edge[0].x, edge[1].y - edge[0].y])
-
-    direction_prev = utils.cross_2D(np.array(descent_prev), edge_vector)
-    direction_next = utils.cross_2D(np.array(descent_next), edge_vector)
-
-    if direction_prev < 0 and direction_next > 0:
-        # this means that the edge lies in a channel formed by the two adjacent triangles
-
-        # TODO: check this first:
-        if edge[0].z >= edge[1].z:
-            # the edge also descends in the correct direction
+    if edge[0].z >= edge[1].z:
+        # the edge descends in the correct direction
+        if edge_lies_in_channel(edge[0], edge[1], adj_triangle_previous, adj_triangle_next):
+            # also, the edge lies in a channel formed by the two adjacent triangles
             return True
 
     return False
@@ -546,15 +570,145 @@ def calculate_steepest_descent_line(start_point, triangles, triangles_subset, xs
 
 # ------ Channel network functions ------
 
-def get_adjacent_vertices(vertex, triangles):
-    adjacent_vertices = set()
-    for triangle in triangles:
-        if triangle.triangle_has_vertex(vertex):
-            for v in triangle.vertices():
-                if v != vertex:
-                    adjacent_vertices.add(v)
-    
-    return list(adjacent_vertices)
+# returns a list of Vertex objects that are on the boundary of the area
+# this is done by checking if any of the connected triangles have less than 3 adjacent triangles (meaning they are on the boundary edge)
+def get_vertices_on_area_bounds(vertices: dict[int, Vertex]) -> list[Vertex]:
+    boundary_vertices = []
+    for v in vertices.values():
+        for connected_t in v.connected_triangles:
+            count = 0
+            for adj_t in connected_t.adjacent_triangles():
+                if adj_t is not None and adj_t.triangle_has_vertex(v):
+                    count += 1
+            
+            if count < 2:
+                # must be on a boundary edge
+                boundary_vertices.append(v)
+                break
 
-def get_vertices_on_area_bounds(vertices):
-    pass
+            #if None in connected_t.adjacent_triangles():
+            #    boundary_vertices.append(v)
+            #    break
+    
+    return boundary_vertices
+
+# This function was generated with AI (Copilot Code Completion)
+# returns a list of Vertex objects that are in pits (i.e., all connected vertices are at equal or higher elevation)
+def get_vertices_in_pit(vertices: dict[int, Vertex]) -> list[Vertex]:
+    pit_vertices = []
+    for v in vertices.values():
+        is_pit = True
+        for connected_v in v.connected_vertices:
+            if connected_v.z < v.z:
+                is_pit = False
+                break
+        
+        if is_pit:
+            pit_vertices.append(v)
+    
+    return pit_vertices
+
+
+def channel_flow_line_helper(vertex: Vertex, triangles: list[Triangle]):
+    #ordered = get_all_triangles_and_edges_at_point(vertex, triangles)
+
+    lines = []
+
+    for other_vertex in vertex.connected_vertices:
+        item = (vertex, other_vertex)
+        adjacent_triangles = get_triangles_with_edge_new(item[0], item[1])
+        if len(adjacent_triangles) < 2:
+            continue
+
+        a1 = adjacent_triangles[0]
+        a2 = adjacent_triangles[1]
+
+        a_v0 = a1.get_other_vertex(item[0], item[1])
+        vec1 = np.array([a_v0.x - vertex.x, a_v0.y - vertex.y])
+        vec2 = np.array([other_vertex.x - vertex.x, other_vertex.y - vertex.y])
+
+        cross = utils.cross_2D(vec1, vec2)
+        lies_in_channel = False
+        if cross < 0:
+            # vec1 rotated positively relative to vec2 (i.e. a1 is next triangle in counterclockwise order)
+            lies_in_channel = edge_lies_in_channel(item[0], item[1], a1, a2, ascend=True)
+        else:
+            # vec1 rotated negatively relative to vec2 (i.e. a2 is next triangle in counterclockwise order)
+            lies_in_channel = edge_lies_in_channel(item[0], item[1], a2, a1, ascend=True)
+            
+        ascending = item[0].z <= item[1].z
+
+        # next_item and previous_item should be triangles adjacent to this edge
+        if ascending and lies_in_channel:
+            next_point = get_other_vertex_from_edge(vertex, item)
+            next_lines = channel_flow_line_helper(next_point, triangles) # keep going up the channel
+            new_lines = [[item[1]]]
+            for line in next_lines:
+                new_line = [item[1]]
+                new_line.extend(line)
+                new_lines.append(new_line)
+            
+            lines.extend(new_lines)
+
+    
+    """previous_item = None
+    next_item = None
+    j = 0
+    next_point = None
+    for item in ordered:
+        previous_item = ordered[(j - 1) % len(ordered)]
+        next_item = ordered[(j + 1) % len(ordered)]
+
+        if isinstance(item, Triangle):
+            pass # do nothing for triangles
+        else: # must be an edge
+
+            if item[0].id != vertex.id:
+                item = (item[1], item[0]) # make first vertex be the given vertex
+            
+            lies_in_channel = edge_lies_in_channel(item[0], item[1], previous_item, next_item)
+            ascending = item[0].z <= item[1].z
+
+            # next_item and previous_item should be triangles adjacent to this edge
+            if ascending and lies_in_channel:
+                next_point = get_other_vertex_from_edge(vertex, item)
+                next_lines = channel_flow_line_helper(next_point, triangles) # keep going up the channel
+                new_lines = [[item[1]]]
+                for line in next_lines:
+                    new_line = [item[1]]
+                    new_line.extend(line)
+                    new_lines.append(new_line)
+                
+                lines.extend(new_lines)
+
+        
+        j += 1"""
+    
+    return lines
+
+def channel_flow_lines_from_vertex(vertex: Vertex, triangles: list[Triangle]):
+    lines = channel_flow_line_helper(vertex, triangles)
+    if lines is None:
+        TIN_log("ERROR: channel flow lines from vertex returned None")
+
+    new_lines = []
+    for line in lines:
+        new_line = [vertex]
+        new_line.extend(line)
+        new_lines.append(new_line)
+    return new_lines
+
+def calculate_channel_flow_lines(vertices: dict[int, Vertex], triangles: list[Triangle]):
+    print(len(vertices), " vertices available for channel flow lines")
+    print(len(triangles), " triangles available for channel flow lines")
+    boundary_vertices = get_vertices_on_area_bounds(vertices)
+    boundary_vertices.extend(get_vertices_in_pit(vertices))
+    print(len(boundary_vertices), " boundary vertices found for channel flow lines")
+
+    all_lines = []
+    for v in boundary_vertices:
+        lines = channel_flow_lines_from_vertex(v, triangles)
+        all_lines.extend(lines)
+    
+    return all_lines
+    

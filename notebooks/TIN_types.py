@@ -51,6 +51,15 @@ class Triangle:
     def triangle_has_vertex(self, vertex):
         return self.v1.id == vertex.id or self.v3.id == vertex.id or self.v2.id == vertex.id
     
+    def get_other_vertex(self, v1, v2):
+        if not self.triangle_has_vertex(v1) or not self.triangle_has_vertex(v2):
+            TIN_log("ERROR: one or both vertices not in triangle")
+            return None
+        
+        for v in self.vertices():
+            if v.id != v1.id and v.id != v2.id:
+                return v
+    
     # This function was generated with AI (Copilot Code Completion)
     # Returns the shared edge (as a tuple of two Vertex objects) between this triangle
     # and an (hopefully adjacent) triangle
@@ -69,7 +78,10 @@ class Triangle:
         return (shared_vertices[0], shared_vertices[1])
     
     def is_adjacent(self, other_triangle):
-        return self.a1.id == other_triangle.id or self.a2.id == other_triangle.id or self.a3.id == other_triangle.id
+        if other_triangle is None:
+            return False
+        
+        return (self.a1 is not None and self.a1.id == other_triangle.id) or (self.a2 is not None and self.a2.id == other_triangle.id) or (self.a3 is not None and self.a3.id == other_triangle.id)
 
     def convert_to_array_triangle(self):
         return np.array([self.v1.coord(), self.v2.coord(), self.v3.coord()])
