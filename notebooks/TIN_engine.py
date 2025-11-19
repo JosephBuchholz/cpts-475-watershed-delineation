@@ -237,6 +237,20 @@ def calculate_steepest_descent(triangle):
     descent = [(A / C), (B / C)]
     return descent
 
+# see Jones et al. (p. 1237)
+def calculate_steepest_descent2(triangle: Triangle):
+    x = (triangle.v1.x, triangle.v2.x, triangle.v3.x)
+    y = (triangle.v1.y, triangle.v2.y, triangle.v3.y)
+    z = (triangle.v1.z, triangle.v2.z, triangle.v3.z)
+
+    A = y[0] * (z[1] - z[2]) + y[1] * (z[2] - z[0]) + y[2] * (z[0] - z[1])
+    B = z[0] * (x[1] - x[2]) + z[1] * (x[2] - x[0]) + z[2] * (x[0] - x[1])
+    C = x[0] * (y[1] - y[2]) + x[1] * (y[2] - y[0]) + x[2] * (y[0] - y[1])
+    #D = -(A * x[0]) - (B * y[0]) - (C * z[1])
+
+    descent = [(A / C), (B / C)]
+    return descent
+
 def get_point_from_descent(triangle, start, descent, xs, ys, zs):
     full = get_full_2D_triangle(triangle, xs, ys, zs)
 
@@ -253,6 +267,22 @@ def get_point_from_descent(triangle, start, descent, xs, ys, zs):
         print("ERROR: next_point should never be None")
 
     return (intersection, triangle[2], triangle[0])
+
+# modifed to use triangle objects
+def get_point_from_descent2(triangle: Triangle, start, descent):
+    intersection = line_segment_line_intersection(triangle.v1.coord2D(), triangle.v2.coord2D(), start, descent)
+    if intersection is not None:
+        return (intersection, triangle.v1, triangle.v2)
+    intersection = line_segment_line_intersection(triangle.v2.coord2D(), triangle.v3.coord2D(), start, descent)
+    if intersection is not None:
+        return (intersection, triangle.v2, triangle.v3)
+        
+    intersection = line_segment_line_intersection(triangle.v3.coord2D(), triangle.v1.coord2D(), start, descent)
+
+    if intersection is None:
+        print("ERROR: next_point should never be None")
+
+    return (intersection, triangle.v3, triangle.v1)
 
 # really long name, but does the same as "get_point_from_descent" except it
 # also gets the other, adjacent triangle that touches the intersection point
@@ -277,6 +307,28 @@ def get_point_and_adj_triangle_from_descent(triangle, start, descent, xs, ys, zs
     
     return (intersection, adj_tri, v1, v2)
 
+# modifed to use triangle objects
+def get_point_and_adj_triangle_from_descent2(triangle: Triangle, start, descent):
+    intersection, v1, v2 = get_point_from_descent2(triangle, start, descent)
+
+    adj_triangles = get_triangles_with_edge_new(v1, v2)
+    if len(adj_triangles) != 2:
+        TIN_log("Error: not enough (or too many) triangles")
+        return (intersection, None, v1, v2)
+    
+    current_tri = None
+    adj_tri = None
+    if adj_triangles[0] == triangle:
+        current_tri = adj_triangles[0]
+        adj_tri = adj_triangles[1]
+    elif adj_triangles[1] == triangle:
+        current_tri = adj_triangles[1]
+        adj_tri = adj_triangles[0]
+    else:
+        print("Error: this should not happen, one of the triangles must be equal")
+    
+    return (intersection, adj_tri, v1, v2)
+
 # see: https://math.stackexchange.com/questions/1324179/how-to-tell-if-3-connected-points-are-connected-clockwise-or-counter-clockwise
 # triangle should be an array of three points (e.g. [[x1, y1, z1], [x2, y2, z2], [x3, y3, z3]])
 def is_clockwise(triangle):
@@ -294,6 +346,32 @@ def is_clockwise(triangle):
 def make_triangle_counterclockwise(triangle):
     if is_clockwise(triangle):
         return triangle[::-1] # reverse the array
+    
+    return triangle # already counterclockwise
+
+def is_clockwise2(triangle: Triangle):
+    matrix = np.array([[triangle.v1.x, triangle.v1.y, 1],
+                       [triangle.v2.x, triangle.v2.y, 1],
+                       [triangle.v3.x, triangle.v3.y, 1]])
+    
+    det = np.linalg.det(matrix)
+
+    if det < 0:
+        return True # clockwise
+    else:
+        return False # counterclockwise
+
+def make_triangle_counterclockwise2(triangle: Triangle):
+    if is_clockwise2(triangle):
+        v1 = triangle.v1
+        #v2 = triangle.v2
+        v3 = triangle.v3
+
+        triangle.v1 = v3
+        #triangle.v2 = v2
+        triangle.v3 = v1
+
+        return triangle
     
     return triangle # already counterclockwise
 

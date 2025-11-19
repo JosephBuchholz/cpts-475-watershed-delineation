@@ -24,6 +24,9 @@ class Vertex:
     def coord(self):
         return np.array([self.x, self.y, self.z])
     
+    def coord2D(self):
+        return np.array([self.x, self.y])
+    
     def __str__(self):
         return "Vertex(id: {}, x: {}, y: {}, z: {})".format(self.id, self.x, self.y, self.z)
     
@@ -34,12 +37,12 @@ class Triangle:
     # v1, v2, v3 are vertices (Vertex objects)
     # a1, a2, a3 are adjacent triangles (Triangle objects)
     def __init__(self, v1, v2, v3, a1, a2, a3, id):
-        self.v1 = v1
-        self.v2 = v2
-        self.v3 = v3
-        self.a1 = a1
-        self.a2 = a2
-        self.a3 = a3
+        self.v1: Vertex = v1
+        self.v2: Vertex = v2
+        self.v3: Vertex = v3
+        self.a1: Triangle = a1
+        self.a2: Triangle = a2
+        self.a3: Triangle = a3
         self.id = id
     
     def vertices(self):

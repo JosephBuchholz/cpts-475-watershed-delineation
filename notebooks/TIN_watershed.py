@@ -15,6 +15,7 @@ from matplotlib import cm
 
 import TIN_engine
 from TIN_engine import *
+from TIN_drainage import *
 from TIN_draw import *
 
 
@@ -156,6 +157,7 @@ print(len(channel_lines))
 
 
 
+drainage_outlet_nodes = create_drainage_network(triangle_objects)
 
 
 
