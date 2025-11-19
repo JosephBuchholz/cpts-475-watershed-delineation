@@ -402,7 +402,7 @@ def edge_lies_in_channel(v1, v2, adj_triangle_previous, adj_triangle_next, ascen
     direction_prev = utils.cross_2D(np.array(descent_prev), edge_vector)
     direction_next = utils.cross_2D(np.array(descent_next), edge_vector)
 
-    if ascend and direction_prev > 0 and direction_next < 0: # TODO: check if this is correct
+    if ascend and direction_prev > 0 and direction_next < 0:
         # this means that the edge lies in a channel formed by the two adjacent triangles
         return True
     elif not ascend and direction_prev < 0 and direction_next > 0:
