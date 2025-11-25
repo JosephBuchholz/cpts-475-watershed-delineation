@@ -87,6 +87,9 @@ def calculate_steepest_descent_line2(ax, start_triangle: Triangle, triangles: li
     current_vertex = None
     onVertex = False
 
+    previous_triangles = set()
+    previous_triangles.add(current_triangle)
+
     #print("current_triangle", current_triangle)
     #print("current_point", current_point)
     #draw_point(ax, current_point, markersize=5)
@@ -94,6 +97,13 @@ def calculate_steepest_descent_line2(ax, start_triangle: Triangle, triangles: li
     for i in range(1, max_steps + 1):
         if i >= max_steps - 1:
             print("RETURN: reached max steps, stopping at iteration ", i)
+        
+        if (current_point[0] == -116.56631 and current_point[1] == 49.48797) or (current_vertex is not None and current_vertex.x == -116.56631 and current_vertex.y == 49.48797):
+            TIN_log("DEBUG: reached specific point at iteration ")
+
+        if (current_point[0] == -116.56792 and current_point[1] == 49.48888) or (current_vertex is not None and current_vertex.x == -116.56792 and current_vertex.y == 49.48888):
+            TIN_log("DEBUG: reached specific point at iteration ")
+
         
         if not onEdge and not onVertex: # needs: current_triangle, current_node, current_point
             #print("At triangle id:", current_triangle.id, " at point:", current_point)
@@ -133,12 +143,11 @@ def calculate_steepest_descent_line2(ax, start_triangle: Triangle, triangles: li
             draw_point(ax, current_point, markersize=4)
 
             current_triangle = adj_tri 
+            previous_triangles.add(current_triangle)
             current_edge = (v1, v2)
             onEdge = True
             onVertex = False
         elif onEdge: # needs current_triangle (set to the adjacent triangle), current_node, current_edge
-            #print("At edge, tri.id", current_triangle.id)
-
             if current_triangle in triangle_to_outlet_node:
                 # connect to existing outlet node
                 existing_outlet_node = triangle_to_outlet_node[current_triangle]
@@ -174,41 +183,11 @@ def calculate_steepest_descent_line2(ax, start_triangle: Triangle, triangles: li
             # direction of the current triangle: if positive then current triangle slopes toward the current edge
             direction = utils.cross_2D(np.array(descent_current), ij[0:2])
 
-            if direction < 0: #TODO
-                #print("slopes away from edge edge")
-                # slopes away case
+            if direction < 0:
+                # slopes away from edge case
                 
-                # current_triangle is correct already
-
-
-
-                # basically do the same as when not an edge and not a vertex 
-                descent = descent_current / np.linalg.norm(descent_current)
-                descent *= 0.001
-
-                next_point, adj_tri, v1, v2 = get_point_and_adj_triangle_from_descent2(current_triangle, current_point[0:2], descent)
-                if next_point is None:
-                    print("Error: returning: next_point should not be None, stopping at iteration ", i)
-                    break
-
-                new_node = Node((next_point[0], next_point[1], previous_z))
-                new_node.upstream_nodes.append(current_node)
-                current_node.downstream_node = new_node
-                triangle_to_outlet_node[current_triangle] = new_node
-
-                current_node = new_node
-                current_point = next_point
-                previous_z = new_node.point[2]
-
-                if adj_tri is None:
-                    print("Error: returning: No adjacent triangle found, stopping at iteration ", i)
-                    break
-
-                draw_point(ax, current_point, markersize=3)
-
-                current_triangle = adj_tri 
-                current_edge = (v1, v2)
-                onEdge = True
+                # current_triangle, current_point, and current_node are already set to the correct values, do triangle case
+                onEdge = False
                 onVertex = False
             else:
                 #print("slopes toward edge")
@@ -238,12 +217,18 @@ def calculate_steepest_descent_line2(ax, start_triangle: Triangle, triangles: li
             #print("At vertex")
             draw_vertex(ax, current_vertex, markersize=2)
 
+            if round(current_vertex.x, 3) == -116.567 and round(current_vertex.y, 3) == 49.505:
+                TIN_log("DEBUG: reached specific vertex at iteration ")
+
             ordered = get_all_triangles_and_edges_at_point(current_vertex, triangles) # TODO: inefficent, need to optimize
             previous_item = None
             next_item = None
             j = 0
             next_point = None
             next_triangle = None
+            #possible_next_triangles = []
+            #possible_next_points = []
+            #possible_next_adjacent_triangles = []
             adj_triangles = []
             for item in ordered:
                 previous_item = ordered[(j - 1) % len(ordered)]
@@ -251,23 +236,32 @@ def calculate_steepest_descent_line2(ax, start_triangle: Triangle, triangles: li
 
                 if isinstance(item, Triangle):
                     if test_triangle(current_vertex, item):
-                        if item != current_triangle:
-                            next_triangle = item
-                            break
+                        if item not in previous_triangles:
+                            if next_triangle is None or item.get_centroid().z < next_triangle.get_centroid().z: # pick lowest triangle (TODO: could be better)
+                                next_triangle = item
+                            #possible_next_triangles.append(item)
                 else: # must be an edge
                     # next_item and previous_item should be triangles adjacent to this edge
-                    if test_edge(current_vertex, item, next_item, previous_item):
-                        next_point = get_other_vertex_from_edge(current_vertex, item)
-                        adj_triangles.append(next_item)
-                        adj_triangles.append(previous_item)
+                    if test_edge(current_vertex, item, next_item, previous_item): # TODO: PROBLEM WITH TEST EDGE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        possible_next_point = get_other_vertex_from_edge(current_vertex, item)
+                        if next_point is None or possible_next_point.z < next_point.z:
+                            next_point = possible_next_point # pick lower point
+
+                            adj_triangles = []
+                            adj_triangles.append(next_item)
+                            adj_triangles.append(previous_item)
+
+                        #possible_next_points.append(get_other_vertex_from_edge(current_vertex, item))
+                        #possible_next_adjacent_triangles.append((next_item, previous_item))
+                        #adj_triangles.append(next_item)
+                        #adj_triangles.append(previous_item)
                         #result.append(next_point.coord())
                         #previous_z = next_point.z
-                        break
                 
                 j += 1
             
             if next_point is not None:
-                if adj_triangles[0] in triangle_to_outlet_node and adj_triangles[0] != current_triangle:
+                if adj_triangles[0] in triangle_to_outlet_node and adj_triangles[0] not in previous_triangles:
                     existing_outlet_node = triangle_to_outlet_node[adj_triangles[0]]
                     
                     if is_node_already_in_outlet(current_node, existing_outlet_node):
@@ -278,7 +272,7 @@ def calculate_steepest_descent_line2(ax, start_triangle: Triangle, triangles: li
                         existing_outlet_node.upstream_nodes.append(current_node)
                         #print("RETURN: Connecting to existing outlet node, stopping! (vertex 1)")
                         return None
-                elif adj_triangles[1] in triangle_to_outlet_node and adj_triangles[1] != current_triangle:
+                elif adj_triangles[1] in triangle_to_outlet_node and adj_triangles[1] not in previous_triangles:
                     existing_outlet_node = triangle_to_outlet_node[adj_triangles[1]]
                     if is_node_already_in_outlet(current_node, existing_outlet_node):
                         print("RETURN: LOOP detected, stopping at iteration (2)", i)
@@ -294,8 +288,15 @@ def calculate_steepest_descent_line2(ax, start_triangle: Triangle, triangles: li
                 current_node.downstream_node = new_node
 
                 # add the two adjacent triangles that share this channel edge
-                triangle_to_outlet_node[adj_triangles[0]] = new_node
-                triangle_to_outlet_node[adj_triangles[1]] = new_node
+                if adj_triangles[0] not in triangle_to_outlet_node and adj_triangles[0] is not None:
+                    triangle_to_outlet_node[adj_triangles[0]] = new_node
+                else:
+                    TIN_log("WARNING: adjacent triangle 0 already has an outlet node assigned.")
+                
+                if adj_triangles[1] not in triangle_to_outlet_node and adj_triangles[1] is not None:
+                    triangle_to_outlet_node[adj_triangles[1]] = new_node
+                else:
+                    TIN_log("WARNING: adjacent triangle 1 already has an outlet node assigned.")
 
                 current_node = new_node
                 current_point = next_point.coord()
@@ -307,11 +308,12 @@ def calculate_steepest_descent_line2(ax, start_triangle: Triangle, triangles: li
                 onVertex = True
             elif next_triangle is not None:
                 current_triangle = next_triangle
+                previous_triangles.add(current_triangle)
 
                 onEdge = False
                 onVertex = False
             else:
-                # need to stop here, no where to go
+                # need to stop here, no where to go (in a pit)
                 #print("RETURN: at vertex pit! stopping at iteration ", i)
                 break
 
@@ -329,6 +331,9 @@ def create_drainage_network(ax, triangles: list[Triangle]) -> list[Node]:
     non_outlet_count = 0
     i = 0
     for triangle in sorted_triangles:
+        #if triangle.id == 73:
+        if triangle.id == 475 or triangle.id == 336:
+            TIN_log("DEBUG: processing triangle id 73 at iteration ")
 
         outlet = calculate_steepest_descent_line2(ax, triangle, sorted_triangles, triangle_to_outlet_node)
         #ax.text(triangle.get_centroid().x, triangle.get_centroid().y, str(triangle.id), color='black', fontsize=6)

@@ -271,15 +271,16 @@ def get_point_from_descent(triangle, start, descent, xs, ys, zs):
 # modifed to use triangle objects
 def get_point_from_descent2(triangle: Triangle, start, descent):
     intersection = line_segment_line_intersection(triangle.v1.coord2D(), triangle.v2.coord2D(), start, descent)
-    if intersection is not None:
+    # TODO: these array_equal checks should be improved to avoid issues
+    if intersection is not None and np.array_equal(start, intersection) == False:
         return (intersection, triangle.v1, triangle.v2)
     intersection = line_segment_line_intersection(triangle.v2.coord2D(), triangle.v3.coord2D(), start, descent)
-    if intersection is not None:
+    if intersection is not None and np.array_equal(start, intersection) == False:
         return (intersection, triangle.v2, triangle.v3)
         
     intersection = line_segment_line_intersection(triangle.v3.coord2D(), triangle.v1.coord2D(), start, descent)
 
-    if intersection is None:
+    if intersection is None and np.array_equal(start, intersection) == False:
         print("ERROR: next_point should never be None")
 
     return (intersection, triangle.v3, triangle.v1)
@@ -480,20 +481,25 @@ def edge_lies_in_channel(v1, v2, adj_triangle_previous, adj_triangle_next, ascen
     direction_prev = utils.cross_2D(np.array(descent_prev), edge_vector)
     direction_next = utils.cross_2D(np.array(descent_next), edge_vector)
 
-    if ascend and direction_prev > 0 and direction_next < 0:
-        # this means that the edge lies in a channel formed by the two adjacent triangles
+    if direction_prev > 0 and direction_next < 0:
         return True
-    elif not ascend and direction_prev < 0 and direction_next > 0:
-        # this means that the edge lies in a channel formed by the two adjacent triangles
-        return True
+
+    #if ascend and direction_prev > 0 and direction_next < 0:
+    #    # this means that the edge lies in a channel formed by the two adjacent triangles
+    #    return True
+    #elif not ascend and direction_prev < 0 and direction_next > 0:
+    #    # this means that the edge lies in a channel formed by the two adjacent triangles
+    #    return True
 
     return False
 
 
 def test_edge(vertex, edge, adj_triangle_previous, adj_triangle_next):
-    if adj_triangle_previous is None or adj_triangle_next is None or isinstance(adj_triangle_previous, tuple) or isinstance(adj_triangle_next, tuple):
-        print()("Error: adjacent triangles cannot be None or edges")
-        return False
+    #if adj_triangle_previous is None or adj_triangle_next is None or isinstance(adj_triangle_previous, tuple) or isinstance(adj_triangle_next, tuple):
+    #    print("Error: adjacent triangles cannot be None or edges")
+    #    return False
+
+    other_vertex = get_other_vertex_from_edge(vertex, edge)
     
     if edge[0] != vertex and edge[1] != vertex:
         print("Error: vertex must be one of the edge's vertices")
@@ -503,9 +509,30 @@ def test_edge(vertex, edge, adj_triangle_previous, adj_triangle_next):
     if edge[0] != vertex:
         edge = (edge[1], edge[0])
     
-    if edge[0].z >= edge[1].z:
+    adjacent_triangles = get_triangles_with_edge_new(edge[0], edge[1])
+    if len(adjacent_triangles) < 2:
+        return False # edge is on boundary, cannot lie in a channel
+
+    a1 = adjacent_triangles[0]
+    a2 = adjacent_triangles[1]
+
+    a_v0 = a1.get_other_vertex(edge[0], edge[1])
+    vec1 = np.array([a_v0.x - vertex.x, a_v0.y - vertex.y])
+    vec2 = np.array([other_vertex.x - vertex.x, other_vertex.y - vertex.y])
+
+    cross = utils.cross_2D(vec1, vec2)
+    lies_in_channel = False
+    if cross < 0:
+        # vec1 rotated positively relative to vec2 (i.e. a1 is next triangle in counterclockwise order)
+        lies_in_channel = edge_lies_in_channel(edge[0], edge[1], a1, a2)
+    else:
+        # vec1 rotated negatively relative to vec2 (i.e. a2 is next triangle in counterclockwise order)
+        lies_in_channel = edge_lies_in_channel(edge[0], edge[1], a2, a1)
+    
+    if edge[0].z > edge[1].z: # strict inequality to avoid problems
         # the edge descends in the correct direction
-        if edge_lies_in_channel(edge[0], edge[1], adj_triangle_previous, adj_triangle_next):
+        #if edge_lies_in_channel(edge[0], edge[1], adj_triangle_previous, adj_triangle_next):
+        if lies_in_channel:
             # also, the edge lies in a channel formed by the two adjacent triangles
             return True
 
