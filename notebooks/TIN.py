@@ -6,7 +6,7 @@ import pymartini
 from skimage.transform import resize
 from scipy.ndimage import map_coordinates
 
-def get_triangles_from_DEM(dem_path: Path):
+def get_triangles_from_DEM(dem_path: Path, mesh_level=10):
     # Load DEM and metadata
     with rasterio.open(dem_path) as src:
         dem = src.read(1)
@@ -32,9 +32,15 @@ def get_triangles_from_DEM(dem_path: Path):
     dem_size = dem_clipped.shape[0]
     target_size = min(max_size, 2 ** int(np.floor(np.log2(dem_size - 1))) + 1)
 
-    # resize
-    dem_resized = resize(dem_clipped, (target_size, target_size), preserve_range=True, anti_aliasing=True)
-    dem_resized = np.ascontiguousarray(dem_resized.astype(np.float32))
+    # resize (commented out: resizing like this causes it not to map to real world coordinates anymore)
+    #dem_resized = resize(dem_clipped, (target_size, target_size), preserve_range=True, anti_aliasing=True)
+    #dem_resized = np.ascontiguousarray(dem_resized.astype(np.float32))
+
+    print("Size: ", dem_size, "->", target_size, "for Martini mesh generation")
+
+    # crop to target size
+    dem_cropped = dem_clipped[:target_size, :target_size]
+    dem_resized = np.ascontiguousarray(dem_cropped.astype(np.float32))
 
     # Build Martini mesh
     grid_size = dem_resized.shape[0]
@@ -42,8 +48,7 @@ def get_triangles_from_DEM(dem_path: Path):
     tile = martini.create_tile(dem_resized)
 
     # Extract mesh at desired level
-    level = 10
-    vertices, triangles = tile.get_mesh(level)
+    vertices, triangles = tile.get_mesh(mesh_level)
     vertices = np.array(vertices, dtype=np.float32).reshape(-1, 2) # put into 2 columns
     triangles = np.array(triangles, dtype=np.int32).reshape(-1, 3) # put into 3 columns
 
