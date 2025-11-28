@@ -7,40 +7,10 @@ class Node:
         self.upstream_nodes: list[Node] = [] # parents
         self.downstream_node: Node = None # child
         self.id = str(uuid.uuid4())
-
-from TIN_draw import *
-
-"""
-def is_node_in_network(node: Node, downstream: Node, depth=0) -> bool:
-    if depth > 100:
-        print("WARNING: maximum recursion depth reached in is_node_in_network")
-        return True
-    
-    if downstream.id == node.id:
-        return True
-
-    for upstream in downstream.upstream_nodes:
-        if is_node_in_network(node, upstream, depth + 1):
-            return True
-    
-    return False
+        self.upstream_triangles: set[Triangle] = set()
 
 def is_node_already_in_outlet(node: Node, outlet: Node) -> bool:
-    if outlet.id == node.id:
-        return True
-    
-    # get downstream node
-    next = outlet
-    while next.downstream_node is not None:
-        if next.id == node.id:
-            return True
-        next = next.downstream_node
-    
-    return is_node_in_network(node, next) if next is not None else False
-"""
-
-def is_node_already_in_outlet(node: Node, outlet: Node) -> bool:
-    return False
+    return False # TODO
 
 # ---- Preprocessing ----
 
@@ -81,6 +51,7 @@ def calculate_steepest_descent_line2(start_triangle: Triangle, triangles: list[T
 
     current_point = current_triangle.get_centroid().coord()
     current_node = Node(current_point)
+    current_node.upstream_triangles.add(current_triangle)
     previous_z = current_point[2]
     onEdge = False
     current_edge = None
@@ -117,6 +88,7 @@ def calculate_steepest_descent_line2(start_triangle: Triangle, triangles: list[T
 
             new_node = Node((next_point[0], next_point[1], previous_z))
             new_node.upstream_nodes.append(current_node)
+            new_node.upstream_triangles.add(current_triangle)
             current_node.downstream_node = new_node
             triangle_to_outlet_node[current_triangle] = new_node
 
@@ -188,6 +160,7 @@ def calculate_steepest_descent_line2(start_triangle: Triangle, triangles: list[T
                 new_node = Node(lowest.coord())
                 new_node.upstream_nodes.append(current_node)
                 current_node.downstream_node = new_node
+                current_node.upstream_triangles.add(current_triangle)
                 triangle_to_outlet_node[current_triangle] = new_node
 
                 current_node = new_node
@@ -258,11 +231,13 @@ def calculate_steepest_descent_line2(start_triangle: Triangle, triangles: list[T
 
                 # add the two adjacent triangles that share this channel edge
                 if adj_triangles[0] not in triangle_to_outlet_node and adj_triangles[0] is not None:
+                    new_node.upstream_triangles.add(adj_triangles[0])
                     triangle_to_outlet_node[adj_triangles[0]] = new_node
                 else:
                     TIN_log("WARNING: adjacent triangle 0 already has an outlet node assigned.")
                 
                 if adj_triangles[1] not in triangle_to_outlet_node and adj_triangles[1] is not None:
+                    new_node.upstream_triangles.add(adj_triangles[1])
                     triangle_to_outlet_node[adj_triangles[1]] = new_node
                 else:
                     TIN_log("WARNING: adjacent triangle 1 already has an outlet node assigned.")

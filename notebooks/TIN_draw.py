@@ -1,14 +1,19 @@
 import numpy as np
 import pyvista as pv
+from TIN_types import Triangle
 
-def draw_triangle(ax, triangle, color, xs, ys):
+def draw_triangle(ax, triangle, color, xs, ys): 
     ax.plot([xs[triangle[0]], xs[triangle[1]]], [ys[triangle[0]], ys[triangle[1]]], "-", color=color, linewidth=1)
     ax.plot([xs[triangle[1]], xs[triangle[2]]], [ys[triangle[1]], ys[triangle[2]]], "-", color=color, linewidth=1)
     ax.plot([xs[triangle[2]], xs[triangle[0]]], [ys[triangle[2]], ys[triangle[0]]], "-", color=color, linewidth=1)
 
 # This function was generated with AI (Copilot Code Completion)
 # The function draws a triangle given a Triangle object
-def draw_triangle_object(ax, triangle, color, linewidth=1):
+def draw_triangle_object(ax, triangle: Triangle, color, linewidth=1, filled=False):
+    if filled:
+        ax.fill([triangle.v1.x, triangle.v2.x, triangle.v3.x],
+                [triangle.v1.y, triangle.v2.y, triangle.v3.y],
+                color=color, alpha=0.3)
     ax.plot([triangle.v1.x, triangle.v2.x], [triangle.v1.y, triangle.v2.y], "-", color=color, linewidth=linewidth)
     ax.plot([triangle.v2.x, triangle.v3.x], [triangle.v2.y, triangle.v3.y], "-", color=color, linewidth=linewidth)
     ax.plot([triangle.v3.x, triangle.v1.x], [triangle.v3.y, triangle.v1.y], "-", color=color, linewidth=linewidth)
