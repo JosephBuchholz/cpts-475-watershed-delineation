@@ -6,7 +6,7 @@ import pymartini
 from skimage.transform import resize
 from scipy.ndimage import map_coordinates
 
-def get_triangles_from_DEM(dem_path: Path, mesh_level=10):
+def get_triangles_from_DEM(dem_path: Path, mesh_level=10, z_scale=0.01):
     # Load DEM and metadata
     with rasterio.open(dem_path) as src:
         dem = src.read(1)
@@ -78,7 +78,6 @@ def get_triangles_from_DEM(dem_path: Path, mesh_level=10):
     zs = (zs - zs_min) / (zs_max - zs_min)
 
     # Fix vertical exaggeration
-    z_scale = 0.01
     zs_scaled = zs * z_scale
 
     # Stack into final vertices (X, Y, Z)

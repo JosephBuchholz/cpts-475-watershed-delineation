@@ -21,8 +21,8 @@ def draw_triangle_object(ax, triangle: Triangle, color, linewidth=1, filled=Fals
 def draw_vertex(ax, point, markersize=1):
     ax.plot(point.x, point.y, 'o', markersize=markersize)
 
-def draw_point(ax, point, markersize=1):
-    ax.plot(point[0], point[1], 'o', markersize=markersize)
+def draw_point(ax, point, markersize=1, color="#000000"):
+    ax.plot(point[0], point[1], 'o', markersize=markersize, color=color)
 
 # where edge is a tuple of two vertices
 def draw_line(ax, edge, color, linewidth=2):
