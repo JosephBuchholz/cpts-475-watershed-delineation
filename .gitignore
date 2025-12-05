@@ -1,5 +1,12 @@
 data/
 
+# Latex
+/report/*.aux
+/report/*.fdb_latexmk
+/report/*.fls
+/report/*.synctex.gz
+/report/*.pdf
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
