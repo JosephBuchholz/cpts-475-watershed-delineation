@@ -6,6 +6,8 @@ data/
 /report/*.fls
 /report/*.synctex.gz
 /report/*.pdf
+/report/*.run.xml
+/report/*.bcf
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
