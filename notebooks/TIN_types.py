@@ -118,5 +118,23 @@ class Triangle:
         z = (self.v1.z + self.v2.z + self.v3.z) / 3.0
         return Vertex(x, y, z, -1) # id of -1 since it's not a real vertex
     
+    def calculate_2D_area(self, transformer=None) -> float:
+        A = self.v1.coord2D()
+        B = self.v2.coord2D()
+        C = self.v3.coord2D()
+
+        if transformer is not None:
+            A = np.array(transformer.transform(A[0], A[1]))
+            B = np.array(transformer.transform(B[0], B[1]))
+            C = np.array(transformer.transform(C[0], C[1]))
+        
+        AB = B - A
+        AC = C - A
+        
+        # see: https://en.wikipedia.org/wiki/Cross_product#Geometric_meaning
+        cross_product = utils.cross_2D(AB, AC)
+        area = 0.5 * np.abs(cross_product)
+        return area
+    
     def __str__(self):
         return "Triangle(id: {}, v1: {}, v2: {}, v3: {})".format(self.id, self.v1, self.v2, self.v3)

@@ -8,3 +8,6 @@ WASHINGTON_SMALL = DATA_DIR / "washington_small.tif"
 WASHINGTON_TINY = DATA_DIR / "washington_tiny.tif"
 
 DEBUG_TIN = True
+
+# This is the EPSG code for the UTM zone for the area of interest
+UTM_ZONE_OF_INTEREST = "EPSG:26911"

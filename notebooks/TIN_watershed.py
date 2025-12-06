@@ -1,6 +1,6 @@
 from TIN_drainage import *
 
-def delineate_watershed_from_drainage_node(drainage_node: Node):
+def delineate_watershed_from_drainage_node(drainage_node: Node) -> set[Triangle]:
     watershed_triangles = set()
     nodes_to_visit = [drainage_node]
 
@@ -13,7 +13,7 @@ def delineate_watershed_from_drainage_node(drainage_node: Node):
 
     return watershed_triangles
 
-def delineate_watershed_from_nearest_outlet(drainage_network: list[Node], pour_point):
+def delineate_watershed_from_nearest_outlet(drainage_network: list[Node], pour_point) -> tuple[set[Triangle], Node]:
     closest_node = None
     for node in drainage_network:
         if closest_node is None:
@@ -26,12 +26,12 @@ def delineate_watershed_from_nearest_outlet(drainage_network: list[Node], pour_p
 
     return delineate_watershed_from_drainage_node(closest_node), closest_node
 
-def delineate_random_watershed(drainage_network: list[Node]):
+def delineate_random_watershed(drainage_network: list[Node]) -> tuple[set[Triangle], Node]:
     random_index = np.random.randint(0, len(drainage_network))
     start_node = drainage_network[random_index]
     return delineate_watershed_from_drainage_node(start_node), start_node
 
-def delineate_largest_watershed(drainage_network: list[Node]):
+def delineate_largest_watershed(drainage_network: list[Node]) -> tuple[set[Triangle], Node]:
     largest_watershed = set()
     start_node = None
     for node in drainage_network:
@@ -41,3 +41,9 @@ def delineate_largest_watershed(drainage_network: list[Node]):
             start_node = node
 
     return largest_watershed, start_node
+
+def calculate_watershed_area(watershed_triangles: set[Triangle], transformer) -> float:
+    total_area = 0.0
+    for triangle in watershed_triangles:
+        total_area += triangle.calculate_2D_area(transformer=transformer)
+    return total_area
