@@ -1,6 +1,7 @@
 from pathlib import Path
 
 DATA_DIR = Path("../data")
+EXPORT_DIR = Path("../exports")
 NORTH_AMERICA_30 = DATA_DIR / "hyd_na_dem_30s.tif"
 WASHINGTON_LARGE = DATA_DIR / "washington_large.tif"
 WASHINGTON_MEDIUM = DATA_DIR / "washington_medium.tif"

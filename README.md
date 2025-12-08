@@ -9,7 +9,8 @@ A research project aimed at creating a scalable terrain graph representation for
 3. Run `pip install -r packages.txt` to install the packages
 4. Create a `data` folder and add the DEM files you want to analyze
 5. In `notebooks/settings.py`, change the `UTM_ZONE_OF_INTEREST` to use the EPSG code corresponding to your DEM's UTM zone (otherwise area calculations will be off).
-6. Run `jupyter notebook` or use the VS Code IDE
+6. Also, create an `exports` folder in the root directory for output files.
+7. Run `jupyter notebook` or use the VS Code IDE
 
 ## After Setup
 After everything is setup, to run anything just run the virtual environment (step 2) and start jupyter notebooks.
