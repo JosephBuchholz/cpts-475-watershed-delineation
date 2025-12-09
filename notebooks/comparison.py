@@ -108,11 +108,6 @@ def calculate_jaccard_index(tin_watershed: set[Triangle], raster_catch, grid: Gr
     if union_area == 0:
         return 0.0
 
-    print("TIN Area:", tin_area)
-    print("Raster Area:", raster_area)
-    print("Intersection Area:", intersection_area)
-    print("Union Area:", union_area)
-
     jaccard_index = intersection_area / union_area
     return jaccard_index
 
@@ -252,3 +247,57 @@ def run_comparisons(data_file: Path, transformer: Transformer, mesh_error_level:
     print("RMSE (square miles):", np.sqrt(squared_residuals / iterations))
     print("Average Jaccard Index:", average_jaccard / iterations)
     print("Iterations:", iterations)
+
+def run_benchmark(data_file: Path, mesh_error_level: int, radius: float = 0.2, trials: int = 5):
+    total_drainage_length = 0.0
+    total_total_length = 0.0
+    for trial in range(trials):
+        print(f"--- Trial {trial + 1} ---")
+        start_time = time.time()
+
+        vertices_3d, triangles, xs, ys, zs, zs_scaled  = get_triangles_from_DEM(data_file, mesh_level=mesh_error_level)
+
+        # Get highest point
+        max_index = np.nanargmax(zs)
+        max_index = np.nanargmin(zs)
+        chosen_point = [xs[max_index], ys[max_index], zs[max_index]]
+
+        # Get subset of triangles around highest point
+        bounds_around_highest = [chosen_point[0] + radius, chosen_point[1] + radius, chosen_point[0] - radius, chosen_point[1] - radius]
+
+        triangles_subset = get_subset_of_triangles_from_bounds(triangles, bounds_around_highest, xs, ys)
+
+        # Convert to triangle and vertex objects
+        triangle_objects, vertices = convert_to_triangle_and_vertex_objects(triangles_subset, xs, ys, zs)
+        print(len(triangle_objects), "triangle objects created.")
+        print(len(vertices), "vertex objects created.")
+
+        # Preprocessing
+        unflaten_triangles(triangle_objects)
+
+        drainage_start_time = time.time()
+        # Drainage network calculation
+        drainage_outlet_nodes = create_drainage_network(triangle_objects)
+        drainage_end_time = time.time()
+
+        end_time = time.time()
+
+        drainage_length = drainage_end_time - drainage_start_time
+        total_length = end_time - start_time
+
+        print("Outlet nodes created:", len(drainage_outlet_nodes))
+
+        print("Total Time (s):", total_length)
+        print("Drainage Network Time (s):", drainage_length)
+
+        total_drainage_length += drainage_length
+        total_total_length += total_length
+
+    average_drainage_time = total_drainage_length / trials
+    average_total_time = total_total_length / trials
+
+    print("Benchmark Results:")
+    print("Average Total Time (s):", average_total_time)
+    print("Average Drainage Network Time (s):", average_drainage_time)
+    return average_total_time, average_drainage_time
+    
