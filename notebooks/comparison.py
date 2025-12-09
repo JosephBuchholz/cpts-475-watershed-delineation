@@ -120,7 +120,9 @@ def calculate_watershed_area_raster(catch, grid: Grid, transformer) -> float:
     cell_w = w / grid.shape[0]
     cell_h = h / grid.shape[1]
     cell_area = cell_w * cell_h # cell area in square meters
-    cell_area 
+    cell_area
+    print("Cell width (m):", cell_w)
+    print("Cell height (m):", cell_h)
 
     raster_num_cells = np.sum(catch)
     raster_area = raster_num_cells * cell_area
