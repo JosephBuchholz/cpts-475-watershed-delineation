@@ -6,7 +6,6 @@ exports/
 /report/*.fdb_latexmk
 /report/*.fls
 /report/*.synctex.gz
-/report/*.pdf
 /report/*.run.xml
 /report/*.bcf
 
